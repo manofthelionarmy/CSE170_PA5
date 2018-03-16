@@ -19,6 +19,7 @@ class MyViewer : public WsViewer
 	void build_scene ();
 	void show_normals ( bool b );
 	void run_animation ();
+	void compute_segments(bool smooth);
 	virtual int handle_keyboard ( const GsEvent &e ) override;
 	virtual int uievent ( int e ) override;
 };

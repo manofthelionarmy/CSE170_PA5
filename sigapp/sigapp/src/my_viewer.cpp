@@ -9,17 +9,20 @@
 
 # include <sigogl/ws_run.h>
 static bool _smooth = true;
-
-GsVec torusFunction(int phi, int theta, float r, float R) {
+static GsModel * torus;
+static int numFaces = 10; 
+static float r = 0.1f;
+static float R = 0.5f;
+GsVec torusFunction(int phi, int theta, const float r1, const float R1) {
 	float x = 0.0f;
 	float y = 0.0f;
 	float z = 0.0f;
 	float alpha = GS_TORAD(float(phi));
 	float beta = GS_TORAD(float(theta));
 
-	x = float(R + r * cosf(alpha))*cosf(beta);
-	y = float(R + r * cosf(alpha)) * sinf(beta);
-	z = float(r * sinf(alpha));
+	x = float(R1 + r1 * cosf(alpha))*cosf(beta);
+	y = float(R1 + r1 * cosf(alpha)) * sinf(beta);
+	z = float(r1 * sinf(alpha));
 
 	return GsVec(x, y, z);
 }
@@ -52,6 +55,7 @@ GsVec calculateSurfaceNormal(GsVec u, GsVec v) {
 
 MyViewer::MyViewer(int x, int y, int w, int h, const char* l) : WsViewer(x, y, w, h, l)
 {
+
 	_nbut = 0;
 	_animating = false;
 	build_ui();
@@ -90,7 +94,8 @@ void MyViewer::add_model(SnShape* s, GsVec p)
 
 void MyViewer::build_scene()
 {
-	GsModel * torus = new GsModel;
+
+	torus = new GsModel;
 	SnModel * sn;
 	int prevPhi = 0;
 	int prevTheta = 0;
@@ -102,15 +107,14 @@ void MyViewer::build_scene()
 	float y = 0.0f;
 	float z = 0.0f;
 
-	float r = 0.1f;
-	float R = 0.5f;
+	
 
 	int a = 0;
 	int b = 1;
 	int c = 2;
 
-	for (nextPhi = 10; prevPhi <= 360; nextPhi += 10) {
-		for (nextTheta = 10; nextTheta <= 360; nextTheta += 10) {
+	for (nextPhi = numFaces; prevPhi <= 360; nextPhi += numFaces) {
+		for (nextTheta = numFaces; nextTheta <= 360; nextTheta += numFaces) {
 
 
 
@@ -160,6 +164,7 @@ void MyViewer::build_scene()
 				torus->set_mode(GsModel::Smooth, GsModel::NoMtl);
 			}
 			else {
+				//Calculating vector u and v. Calculations are provided at https://www.khronos.org/opengl/wiki/Calculating_a_Surface_Normal
 				GsVec u = torus->V[f1.b] - torus->V[f1.a];
 				GsVec v = torus->V[f1.c] - torus->V[f1.a];
 
@@ -189,6 +194,34 @@ void MyViewer::build_scene()
 
 }
 
+void MyViewer::compute_segments(bool smooth) {
+
+	SnLines * l = new SnLines;
+	l->init();
+	l->color(GsColor::red);
+
+	if (smooth) {
+		GsModel &m = *torus; 
+		for (int i = 0; i < m.V.size(); ++i) {
+			const GsVec& a = m.V[i];
+
+			l->push(a, a + m.N[i] * 0.1f);
+		}
+	}
+	else {
+		GsModel &m = *torus;
+
+		for (int i = 0; i < m.F.size(); ++i) {
+			const GsVec& a = m.V[m.F[i].a];
+			const GsVec& b = m.V[m.F[i].b];
+			const GsVec& c = m.V[m.F[i].c];
+			GsVec fcenter = (a + b + c) / 3.0f;
+			l->push(fcenter, fcenter + m.N[i] * 10.0f);
+		}
+	}
+
+	rootg()->add(l);
+}
 // Below is an example of how to control the main loop of an animation:
 void MyViewer::run_animation()
 {
@@ -255,6 +288,76 @@ int MyViewer::handle_keyboard(const GsEvent &e)
 
 	switch (e.key)
 	{
+	case 'q': {
+		++numFaces;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1;
+	}
+	case 'a': {
+		--numFaces;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1;
+	}
+	case 'w': {
+		r += 0.1f;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
+	case 's': {
+		r -= 0.1f;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
+	case 'e': {
+		R += 0.1f;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
+	case 'd': {
+		R -= 0.1f;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
+	case 'z': {
+		_smooth = false;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
+	case 'x': {
+		_smooth = true;
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
+	case 'c': {
+		
+		compute_segments(_smooth);
+		build_scene();
+		render();
+		return 1;
+	}
+	case 'v': {
+		
+		rootg()->remove_all();
+		build_scene();
+		render();
+		return 1; 
+	}
 	case GsEvent::KeyEsc: gs_exit(); return 1;
 	case 'n': { bool b = !_nbut->value(); _nbut->value(b); show_normals(b); return 1; }
 	default: gsout << "Key pressed: " << e.key << gsnl;
